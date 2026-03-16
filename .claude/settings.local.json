@@ -1,21 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ln -s ~/workspace/ai-teams/teams/nautilus /home/cheston_riley/workspace/team_vectorize/ai_team)",
-      "Bash(openspec list:*)",
-      "Bash(npm --version)",
-      "Bash(npm install:*)",
-      "Bash(openspec init:*)",
-      "Bash(npm list:*)",
-      "Bash(npm root:*)",
-      "Read(//home/cheston_riley/.local/share/fnm/node-versions/v20.20.1/installation/bin/**)",
-      "Read(//home/cheston_riley/.local/share/fnm/node-versions/v20.20.1/installation/lib/node_modules/openspec/**)",
-      "Bash(export PATH=\"/home/cheston_riley/.local/share/fnm/node-versions/v20.20.1/installation/bin:$PATH\")",
-      "Bash(npm uninstall:*)",
-      "Bash(openspec --version)",
-      "Bash(git init:*)",
-      "Bash(git branch:*)",
-      "Bash(git add:*)"
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Agent(*)"
     ]
   }
 }
