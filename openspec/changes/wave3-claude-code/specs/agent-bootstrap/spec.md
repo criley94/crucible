@@ -2,7 +2,7 @@
 
 **Author:** Maya (RA)
 **Date:** 2026-03-16
-**Status:** Draft -- pending TL design review
+**Status:** Complete -- implemented and operational. See design.md for resolved decisions.
 **Parent Proposal:** Wave 3 -- Claude Code Integration
 **Spec ID:** wave3-agent-bootstrap
 
@@ -645,10 +645,11 @@ These are observations and flags for the TL to consider during design. They are 
 
 ## Document Status
 
-Draft. Depends on proposal blocking questions B1-B4 being resolved. Ready for TL design review.
+Complete. All blocking questions resolved. All API endpoints verified. Nautilus identity seeded and verified. Capstone demo operational.
 
-Pending:
-- TL design review (Dante)
-- Verification that all API endpoints referenced exist and return expected data
-- Nautilus identity seed verification in production database
-- Sponsor approval of capstone demo flow
+Resolved during implementation:
+- DQ1: GET /api/v1/orgs/<slug> exists and returns personal_statement. Confirmed.
+- DQ2: Operating Model section stays in agent definition files, not in the database. Design decision.
+- DQ3: Python script (provision_team.py) chosen. More robust than bash for JSON handling and template generation.
+- DQ4: Strictly on-demand. No speculative queries at bootstrap. Strengthened query triggers added to CLAUDE.md template.
+- DQ5: No token count in confirmation. Kept brief per the spec template.

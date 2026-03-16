@@ -2,7 +2,7 @@
 
 **Author:** Maya (RA)
 **Date:** 2026-03-16
-**Status:** Draft -- pending TL design review and sponsor approval
+**Status:** Complete -- implemented via Wave 3.5 changes (experience-migration + team-provisioning)
 **Parent:** TeamForge Phase 1
 
 ---
@@ -193,9 +193,9 @@ With 8 agents, maintaining 8 nearly-identical agent definition files is manageab
 
 ## Document Status
 
-Draft. Blocking questions B1-B4 need resolution (B1 and B2 are TL decisions, B3 is a verification task, B4 is a sponsor/TL decision). Non-blocking questions NB1-NB3 can be resolved during design.
-
-Pending:
-- TL design review
-- Sponsor approval of scope and capstone demo definition
-- Resolution of blocking questions
+Complete. All blocking questions resolved during implementation:
+- B1: Credentials file at ~/.config/teamforge/credentials.json (JSON with api_url, api_key, org_slug, team_slug)
+- B2: Generated via Python provisioning script (provision_team.py), not hand-maintained
+- B3: Nautilus team fully seeded in production database (org: hands-on-analytics, team: nautilus)
+- B4: Provisioning script + seed agent approach. TL dispatched as main session agent.
+- NB1-NB3: Resolved -- cache for session, brief confirmation output, proactive writes during session.

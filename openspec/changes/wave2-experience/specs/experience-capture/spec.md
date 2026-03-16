@@ -2,7 +2,7 @@
 
 **Parent Proposal:** wave2-experience
 **Author:** Maya (RA)
-**Status:** Draft -- pending TL feasibility review and sponsor resolution of blocking questions
+**Status:** Complete -- implemented and deployed. All blocking questions resolved.
 **Date:** 2026-03-16
 
 ---
@@ -128,7 +128,7 @@ Create multiple experience entries in a single request. This is the primary endp
 **Response:** 201 Created with an array of created entries.
 
 **Constraints:**
-- Maximum batch size: to be determined during design (Dante). My recommendation: 50 entries per batch. The current Nautilus experience corpus is ~70 entries total across all categories. A single session is unlikely to generate more than 20-30 observations.
+- Maximum batch size: 50 entries per batch (resolved during implementation, enforced in experience.py route handler). The current Nautilus experience corpus is ~70 entries total across all categories. A single session is unlikely to generate more than 20-30 observations.
 - All entries in a batch must belong to the same org (enforced by API key).
 - Each entry is validated independently. If any entry fails validation, the entire batch is rejected (atomic). Partial success is not supported -- it creates ambiguity about what was saved.
 
@@ -256,7 +256,7 @@ Some experience belongs to a team, not an individual agent. Examples from the cu
 
 These are the requirements the embedding pipeline must satisfy. How Dante builds it is his decision.
 
-1. **Model:** Vertex AI text-embedding API (textembedding-gecko@003), 768 dimensions. Per AD2.
+1. **Model:** Vertex AI text-embedding API (`text-embedding-005`), 768 dimensions. Per AD2 and design.md (Vertex AI Integration section).
 
 2. **Input:** The `body` field of the experience entry. Not the title, not the tags, not the metadata. Just the body text.
    - **Rationale:** The body is the semantic content. Embedding the title would add noise (titles are short summaries, not additional information). Tags and metadata are handled by structured filters, not vector similarity.

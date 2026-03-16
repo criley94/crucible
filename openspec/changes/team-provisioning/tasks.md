@@ -17,4 +17,4 @@
 - [x] 3.1 Run install script to place seed.md
 - [x] 3.2 Create a fresh test project directory
 - [x] 3.3 Invoke seed agent on the test project and verify all files are generated correctly
-- [ ] 3.4 Start a new session in the test project and verify TL bootstraps from the API
+- [x] 3.4 Start a new session in the test project and verify TL bootstraps from the API (verified by sponsor, 2026-03-16)

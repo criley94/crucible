@@ -2,7 +2,7 @@
 
 **Parent Proposal:** wave1-foundation
 **Author:** Maya (RA)
-**Status:** Draft -- pending TL feasibility review
+**Status:** Complete -- implemented and deployed. 35/35 UAT passed.
 
 ---
 

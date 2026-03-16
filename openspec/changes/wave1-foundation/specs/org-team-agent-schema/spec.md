@@ -2,7 +2,7 @@
 
 **Parent Proposal:** wave1-foundation
 **Author:** Maya (RA)
-**Status:** Draft -- pending TL feasibility review
+**Status:** Complete -- implemented and deployed. 35/35 UAT passed.
 
 ---
 
@@ -186,10 +186,10 @@ This table is created in Wave 1 with the hybrid structure defined by the sponsor
 | project_ref_id | UUID | FK -> project_references, NULLABLE | Project context at time of writing |
 | observation_type | VARCHAR(50) | NOT NULL | e.g., 'lesson', 'pattern', 'relationship_note', 'heuristic', 'decision' |
 | body | TEXT | NOT NULL | Free-text content |
-| embedding | vector(1536) | NULLABLE | Vector embedding of body. NULL until embedding is generated (Wave 2). |
+| embedding | vector(768) | NULLABLE | Vector embedding of body via Vertex AI text-embedding-005. NULL until embedding is generated (Wave 2). |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
-**Note:** This table exists in the Wave 1 schema so that the entity model is complete, but no API endpoints write to it in Wave 1. The embedding dimension (1536) is a placeholder -- Dante should confirm the target embedding model dimensions during design review.
+**Note:** This table exists in the Wave 1 schema so that the entity model is complete, but no API endpoints write to it in Wave 1. The embedding dimension was resolved to 768 in Wave 2 design (AD2, Vertex AI text-embedding-005). The initial migration created the column as vector(768).
 
 ### review_entries (placeholder)
 
@@ -205,7 +205,7 @@ Performance review submissions. Created in Wave 1 schema, endpoints in Wave 2.
 | project_ref_id | UUID | FK -> project_references, NULLABLE | Which project prompted this review |
 | scores | JSONB | NOT NULL | {"dimension_id": score, ...} for each dimension scored |
 | narrative | TEXT | NULLABLE | Free-text review feedback |
-| narrative_embedding | vector(1536) | NULLABLE | For pattern surfacing via vector search |
+| narrative_embedding | vector(768) | NULLABLE | For pattern surfacing via vector search (768 dimensions per Vertex AI text-embedding-005) |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
 ---

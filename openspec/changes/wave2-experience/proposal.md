@@ -2,7 +2,7 @@
 
 **Author:** Maya (RA)
 **Date:** 2026-03-16
-**Status:** Draft -- pending TL design review and sponsor approval
+**Status:** Complete -- all capabilities delivered and deployed
 **Parent:** TeamForge Phase 1
 
 ---
@@ -175,7 +175,5 @@ The existing experience_entries table is deployed in production with seed data (
 
 ## Document Status
 
-B1-B3 resolved by sponsor (2026-03-16). B4-B5 deferred to design phase (TL decision).
-Pending:
-- TL design review
-- Implementation
+B1-B3 resolved by sponsor (2026-03-16). B4-B5 resolved in design (AD15, AD16).
+All capabilities implemented and deployed. Green Cheese Test passing (0.7038 similarity).

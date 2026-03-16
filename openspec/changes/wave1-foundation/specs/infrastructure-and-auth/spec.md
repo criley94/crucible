@@ -2,7 +2,7 @@
 
 **Parent Proposal:** wave1-foundation
 **Author:** Maya (RA)
-**Status:** Draft -- pending TL feasibility review and Cloud Architect input
+**Status:** Complete -- implemented and deployed. Cloud Run, Cloud SQL, Cloud Build all operational.
 
 ---
 
