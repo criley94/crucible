@@ -2,6 +2,7 @@
 
 import uuid
 import logging
+from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy import text
@@ -11,6 +12,7 @@ from app.middleware.auth import require_api_key
 from app.models.experience import ExperienceEntry, VALID_OBSERVATION_TYPES, VALID_SCOPES
 from app.models.agent import Agent
 from app.services.embedding import embed_text, embed_texts
+from app.utils.pagination import paginate_query
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +123,154 @@ def create_experience():
         logger.error(f"Error creating experience entry: {e}")
         return jsonify({
             "error": {"code": "INTERNAL_ERROR", "message": "Failed to create experience entry.", "details": {}}
+        }), 500
+    finally:
+        db.close()
+
+
+@experience_bp.route("/api/v1/experience", methods=["GET"])
+@require_api_key
+def list_experience():
+    """List experience entries for the authenticated org with filters and pagination."""
+    # --- Pagination params ---
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 20, type=int), 100)
+
+    # --- Validate sort ---
+    sort = request.args.get("sort", "created_at_desc")
+    if sort not in ("created_at_desc", "created_at_asc"):
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": f"Invalid sort value: '{sort}'. Must be one of: created_at_desc, created_at_asc",
+                "details": {},
+            }
+        }), 422
+
+    # --- Validate observation_type ---
+    observation_type = request.args.get("observation_type")
+    if observation_type and observation_type not in VALID_OBSERVATION_TYPES:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": f"Invalid observation_type: '{observation_type}'. Must be one of: {', '.join(VALID_OBSERVATION_TYPES)}",
+                "details": {},
+            }
+        }), 422
+
+    # --- Validate scope ---
+    scope = request.args.get("scope")
+    if scope and scope not in VALID_SCOPES:
+        return jsonify({
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": f"Invalid scope: '{scope}'. Must be one of: {', '.join(VALID_SCOPES)}",
+                "details": {},
+            }
+        }), 422
+
+    # --- Validate agent_id ---
+    agent_id = request.args.get("agent_id")
+    if agent_id:
+        try:
+            agent_id = uuid.UUID(agent_id)
+        except ValueError:
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid agent_id format. Must be a valid UUID.",
+                    "details": {},
+                }
+            }), 422
+
+    # --- Validate team_id ---
+    team_id = request.args.get("team_id")
+    if team_id:
+        try:
+            team_id = uuid.UUID(team_id)
+        except ValueError:
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid team_id format. Must be a valid UUID.",
+                    "details": {},
+                }
+            }), 422
+
+    # --- Validate date filters ---
+    created_after = request.args.get("created_after")
+    if created_after:
+        try:
+            created_after = datetime.fromisoformat(created_after)
+        except ValueError:
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid created_after format. Must be ISO 8601 datetime.",
+                    "details": {},
+                }
+            }), 422
+
+    created_before = request.args.get("created_before")
+    if created_before:
+        try:
+            created_before = datetime.fromisoformat(created_before)
+        except ValueError:
+            return jsonify({
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Invalid created_before format. Must be ISO 8601 datetime.",
+                    "details": {},
+                }
+            }), 422
+
+    db = SessionLocal()
+    try:
+        # Query with join to agents table for agent_name
+        query = (
+            db.query(ExperienceEntry, Agent.name.label("agent_name"))
+            .join(Agent, ExperienceEntry.agent_id == Agent.id)
+            .filter(ExperienceEntry.org_id == g.org_id)
+        )
+
+        # Apply filters
+        if agent_id:
+            query = query.filter(ExperienceEntry.agent_id == agent_id)
+        if team_id:
+            query = query.filter(ExperienceEntry.team_id == team_id)
+        if observation_type:
+            query = query.filter(ExperienceEntry.observation_type == observation_type)
+        if scope:
+            query = query.filter(ExperienceEntry.scope == scope)
+        if created_after:
+            query = query.filter(ExperienceEntry.created_at >= created_after)
+        if created_before:
+            query = query.filter(ExperienceEntry.created_at <= created_before)
+
+        # Apply sort
+        if sort == "created_at_asc":
+            query = query.order_by(ExperienceEntry.created_at.asc())
+        else:
+            query = query.order_by(ExperienceEntry.created_at.desc())
+
+        # Paginate
+        items, pagination = paginate_query(query, page, per_page)
+
+        # Build response data
+        data = []
+        for entry, agent_name in items:
+            entry_dict = entry.to_dict()
+            entry_dict["agent_name"] = agent_name
+            data.append(entry_dict)
+
+        return jsonify({
+            "data": data,
+            "pagination": pagination,
+        }), 200
+    except Exception as e:
+        logger.error(f"Error listing experience entries: {e}")
+        return jsonify({
+            "error": {"code": "INTERNAL_ERROR", "message": "Failed to list experience entries.", "details": {}}
         }), 500
     finally:
         db.close()

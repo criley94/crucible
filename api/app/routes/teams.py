@@ -8,20 +8,9 @@ from app.models.team import Team
 from app.models.agent import Agent
 from app.models.project import ProjectReference, TeamProjectConnection
 from app.models.helpers import resolve_id_or_slug
+from app.utils.pagination import paginate_query
 
 teams_bp = Blueprint("teams", __name__)
-
-
-def paginate_query(query, page, per_page):
-    """Apply pagination to a query."""
-    total = query.count()
-    items = query.offset((page - 1) * per_page).limit(per_page).all()
-    return items, {
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": max(1, -(-total // per_page)),  # ceiling division
-    }
 
 
 @teams_bp.route("/api/v1/teams", methods=["POST"])

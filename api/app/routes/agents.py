@@ -6,19 +6,9 @@ from app.database import SessionLocal
 from app.middleware.auth import require_api_key
 from app.models.agent import Agent
 from app.models.helpers import resolve_id_or_slug
+from app.utils.pagination import paginate_query
 
 agents_bp = Blueprint("agents", __name__)
-
-
-def paginate_query(query, page, per_page):
-    total = query.count()
-    items = query.offset((page - 1) * per_page).limit(per_page).all()
-    return items, {
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": max(1, -(-total // per_page)),
-    }
 
 
 @agents_bp.route("/api/v1/agents", methods=["POST"])
