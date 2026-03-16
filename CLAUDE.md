@@ -80,10 +80,14 @@ curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \
   "$API_URL/api/v1/experience/search"
 ```
 
-Use when: making decisions with potential precedent, encountering familiar patterns,
-recalling cross-project context, or when the sponsor references past work.
+Query experience whenever there is a reasonable chance the answer already exists. Specific triggers:
+- The sponsor asks about preferences, history, or past decisions
+- The sponsor asks a question that could have been discussed before
+- You are making a technical or process decision the team may have encountered before
+- The conversation touches team dynamics, relationships, or working style
+- You encounter a familiar pattern or need cross-project context
 
-Do NOT query speculatively at bootstrap. Query when you have a specific need.
+Do NOT query speculatively at bootstrap. Query when you have a specific need during the conversation.
 
 ### Capturing Experience (Proactive)
 

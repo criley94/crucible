@@ -1,88 +1,64 @@
----
-name: teamforge-seed
-description: >
-  TeamForge provisioning agent. Attaches a team to a project by generating
-  CLAUDE.md, agent definition files, and settings. One-time setup -- after
-  provisioning, start a new session to talk to the Team Lead directly.
-model: inherit
-permissionMode: default
----
+#!/usr/bin/env python3
+"""TeamForge team provisioning script.
 
-# TeamForge Team Provisioning
+Generates CLAUDE.md, .claude/agents/*.md, and .claude/settings.local.json
+in the current directory by querying the TeamForge API for team roster data.
 
-You are the TeamForge seed agent. Your ONLY job is to provision a team onto the
-current project. You do NOT do development work, answer questions, or act as any
-team member. You provision and exit.
+Usage:
+    python3 provision_team.py [--team TEAM_SLUG] [--target-dir DIR]
+"""
 
-Follow these steps exactly.
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
----
 
-## Step 1: Read Credentials
+def load_credentials():
+    cred_path = Path.home() / ".config" / "teamforge" / "credentials.json"
+    if not cred_path.exists():
+        print(f"ERROR: Credentials not found at {cred_path}", file=sys.stderr)
+        sys.exit(1)
+    with open(cred_path) as f:
+        return json.load(f)
 
-Run this command silently (do NOT display the api_key in output):
 
-```
-cat ~/.config/teamforge/credentials.json
-```
+def get_gcp_token():
+    result = subprocess.run(
+        ["gcloud", "auth", "print-identity-token"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        print("ERROR: GCP authentication required. Run 'gcloud auth login' first.", file=sys.stderr)
+        sys.exit(1)
+    return result.stdout.strip()
 
-Extract: `api_url`, `api_key`, `org_slug`, `team_slug`.
-If the file is missing, STOP: "TeamForge credentials not found at ~/.config/teamforge/credentials.json. Run the install script first."
 
-## Step 2: Get GCP Auth Token
+def api_get(url, api_key, token):
+    import urllib.request
+    req = urllib.request.Request(url)
+    req.add_header("X-API-Key", api_key)
+    req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode())
+    except Exception as e:
+        print(f"ERROR: API request failed: {e}", file=sys.stderr)
+        sys.exit(1)
 
-Run: `gcloud auth print-identity-token 2>/dev/null`
 
-Store the token. If this fails, STOP: "GCP authentication required. Run 'gcloud auth login' first."
+def find_tech_lead(roster):
+    for agent in roster:
+        role = agent.get("role", "")
+        if "Tech Lead" in role or "TL" in role:
+            return agent
+    return None
 
-## Step 3: Discover Team
 
-Query the team API:
-
-```
-curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/teams/$TEAM_SLUG"
-```
-
-Check the response before proceeding. If the HTTP response is not valid JSON containing
-a `roster` array (e.g., the API returns an error, a 404, or an HTML error page), STOP:
-"Team '{team_slug}' not found in TeamForge. Verify the team_slug in ~/.config/teamforge/credentials.json."
-
-From the response, extract:
-- `team_name`: the team's name
-- `team_id`: the team's UUID
-- `team_slug`: the team's slug
-- `org_id`: the org UUID
-- `roster`: array of agents with their `slug`, `name`, `role`, and `id`
-
-Find the **Tech Lead** by looking for the agent with `role` containing "Tech Lead" or "TL".
-Store their `slug` as `tl_slug` and their `name` as `tl_name`.
-
-If no Tech Lead is found, STOP: "No Tech Lead found on team '{team_name}'. Cannot provision without a TL."
-
-## Step 4: Load Org Context
-
-```
-curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/orgs/$ORG_SLUG"
-```
-
-Extract: `org_name`, `org_slug`.
-
-## Step 5: Check for Existing Files
-
-Check if `CLAUDE.md` or `.claude/agents/` already exist in the current directory.
-
-If either exists, warn the user:
-"This project already has TeamForge configuration. Overwrite? (This will replace CLAUDE.md and all agent files.)"
-
-Wait for confirmation before proceeding. If the user declines, STOP.
-
-## Step 6: Generate CLAUDE.md
-
-Create `CLAUDE.md` in the current project directory with the following content.
-Replace all placeholders with actual values from the API responses.
-
-```markdown
-# {team_name} -- TeamForge Session Instructions
+def generate_claude_md(tl_name, tl_slug, team_name, team_slug, org_slug):
+    return f"""# {team_name} -- TeamForge Session Instructions
 
 You ARE {tl_name}, the Tech Lead for Team {team_name}. You are NOT an outer agent that dispatches {tl_slug}.
 Do NOT use the Agent tool to dispatch {tl_slug}. You are {tl_slug}. Load the identity below and
@@ -102,9 +78,9 @@ You MUST load your identity before doing any work.
 
 Run this command silently (do NOT display the api_key in output):
 
-\```
+```
 cat ~/.config/teamforge/credentials.json
-\```
+```
 
 Extract: `api_url`, `api_key`, `org_slug`, `team_slug`. Store them for this session.
 If the file is missing, STOP: "TeamForge credentials not found. Cannot bootstrap."
@@ -118,9 +94,9 @@ If this fails, STOP: "GCP authentication required. Run 'gcloud auth login' first
 
 ### Step 3: Load Your Identity
 
-\```
+```
 curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/agents/{tl_slug}"
-\```
+```
 
 From the response, internalize: name, role, persona, responsibilities, relationships,
 understanding, current_scores. These define WHO you are for this session.
@@ -129,17 +105,17 @@ If the API returns an error, STOP: "TeamForge API error: [message]. Cannot proce
 
 ### Step 4: Load Team Context
 
-\```
+```
 curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/teams/{team_slug}"
-\```
+```
 
 Internalize: roster (who's on your team), norms, active_projects.
 
 ### Step 5: Load Org Context
 
-\```
+```
 curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/orgs/{org_slug}"
-\```
+```
 
 Internalize: personal_statement (sponsor's values), evaluation dimensions.
 
@@ -157,12 +133,12 @@ You are now that agent. Behave according to your persona, responsibilities, and 
 
 When you need past context (precedent, patterns, lessons), query the experience API:
 
-\```
-curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "<your question>", "filters": {"agent_id": "<your-uuid>", "team_id": "<team-uuid>"}, "limit": 5}' \
+```
+curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"query": "<your question>", "filters": {{"agent_id": "<your-uuid>", "team_id": "<team-uuid>"}}, "limit": 5}}' \\
   "$API_URL/api/v1/experience/search"
-\```
+```
 
 Query experience whenever there is a reasonable chance the answer already exists. Specific triggers:
 - The sponsor asks about preferences, history, or past decisions
@@ -179,12 +155,12 @@ Do NOT query speculatively at bootstrap. Query when you have a specific need dur
 
 When you observe something worth preserving (lesson, pattern, decision, process gap):
 
-\```
-curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "<your-uuid>", "observation_type": "<type>", "body": "<text>", "scope": "<agent|team|org>", "team_id": "<team-uuid>"}' \
+```
+curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"agent_id": "<your-uuid>", "observation_type": "<type>", "body": "<text>", "scope": "<agent|team|org>", "team_id": "<team-uuid>"}}' \\
   "$API_URL/api/v1/experience"
-\```
+```
 
 Types: lesson, pattern, process_gap, heuristic, relationship_note, decision, observation, recall.
 Scope: agent (personal), team (shared with team), org (company-wide).
@@ -203,21 +179,11 @@ Notes:
 - In your final response, share file paths (always absolute, never relative) that are relevant to the task. Include code snippets only when the exact text is load-bearing (e.g., a bug you found, a function signature the caller asked for) -- do not recap code you merely read.
 - For clear communication with the user the assistant MUST avoid using emojis.
 - Do not use a colon before tool calls. Text like "Let me read the file:" followed by a read tool call should just be "Let me read the file." with a period.
-```
+"""
 
-IMPORTANT: In the generated CLAUDE.md, the backtick-fenced code blocks inside the
-bootstrap steps must be real markdown code fences (triple backticks), NOT escaped.
-The `\`` shown above is only to prevent this seed file from breaking -- when you
-write the actual CLAUDE.md, use real triple backticks.
 
-## Step 7: Generate Agent Definition Files
-
-Create the directory `.claude/agents/` if it does not exist.
-
-For EACH agent on the roster, create `.claude/agents/{slug}.md` with this content:
-
-```markdown
----
+def generate_agent_md(slug, name, role, team_name, team_slug, org_slug):
+    return f"""---
 name: {slug}
 description: >
   {name} -- {role}. Part of Team {team_name}.
@@ -234,9 +200,9 @@ You MUST load your identity before doing any work.
 
 Run this command silently (do NOT display the api_key in output):
 
-\```
+```
 cat ~/.config/teamforge/credentials.json
-\```
+```
 
 Extract: `api_url`, `api_key`, `org_slug`, `team_slug`. Store them for this session.
 If the file is missing, STOP: "TeamForge credentials not found. Cannot bootstrap."
@@ -250,9 +216,9 @@ If this fails, STOP: "GCP authentication required. Run 'gcloud auth login' first
 
 ### Step 3: Load Your Identity
 
-\```
+```
 curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/agents/{slug}"
-\```
+```
 
 From the response, internalize: name, role, persona, responsibilities, relationships,
 understanding, current_scores. These define WHO you are for this session.
@@ -261,17 +227,17 @@ If the API returns an error, STOP: "TeamForge API error: [message]. Cannot proce
 
 ### Step 4: Load Team Context
 
-\```
+```
 curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/teams/{team_slug}"
-\```
+```
 
 Internalize: roster (who's on your team), norms, active_projects.
 
 ### Step 5: Load Org Context
 
-\```
+```
 curl -s -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" "$API_URL/api/v1/orgs/{org_slug}"
-\```
+```
 
 Internalize: personal_statement (sponsor's values), evaluation dimensions.
 
@@ -289,12 +255,12 @@ You are now that agent. Behave according to your persona, responsibilities, and 
 
 When you need past context (precedent, patterns, lessons), query the experience API:
 
-\```
-curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "<your question>", "filters": {"agent_id": "<your-uuid>", "team_id": "<team-uuid>"}, "limit": 5}' \
+```
+curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"query": "<your question>", "filters": {{"agent_id": "<your-uuid>", "team_id": "<team-uuid>"}}, "limit": 5}}' \\
   "$API_URL/api/v1/experience/search"
-\```
+```
 
 Query experience whenever there is a reasonable chance the answer already exists. Specific triggers:
 - The sponsor asks about preferences, history, or past decisions
@@ -311,92 +277,130 @@ Do NOT query speculatively at bootstrap. Query when you have a specific need dur
 
 When you observe something worth preserving (lesson, pattern, decision, process gap):
 
-\```
-curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "<your-uuid>", "observation_type": "<type>", "body": "<text>", "scope": "<agent|team|org>", "team_id": "<team-uuid>"}' \
+```
+curl -s -X POST -H "X-API-Key: $API_KEY" -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"agent_id": "<your-uuid>", "observation_type": "<type>", "body": "<text>", "scope": "<agent|team|org>", "team_id": "<team-uuid>"}}' \\
   "$API_URL/api/v1/experience"
-\```
+```
 
 Types: lesson, pattern, process_gap, heuristic, relationship_note, decision, observation, recall.
 Scope: agent (personal), team (shared with team), org (company-wide).
 
 Write proactively -- do not wait for session close. If the session ends abruptly, unwritten observations are lost.
-```
+"""
 
-Again: when writing the actual agent files, use real triple backticks, not escaped ones.
 
-## Step 8: Generate Settings File
-
-The default permission entries that must be present are:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(*)",
-      "Read(*)",
-      "Write(*)",
-      "Edit(*)",
-      "Glob(*)",
-      "Grep(*)",
-      "Agent(*)"
+def generate_settings(target_dir):
+    """Generate or merge settings.local.json."""
+    settings_path = target_dir / ".claude" / "settings.local.json"
+    default_perms = [
+        "Bash(*)", "Read(*)", "Write(*)", "Edit(*)",
+        "Glob(*)", "Grep(*)", "Agent(*)"
     ]
-  }
-}
-```
 
-If `.claude/settings.local.json` does NOT exist, create it with the defaults above.
+    if settings_path.exists():
+        with open(settings_path) as f:
+            settings = json.load(f)
+        existing = settings.get("permissions", {}).get("allow", [])
+        for perm in default_perms:
+            if perm not in existing:
+                existing.append(perm)
+        settings.setdefault("permissions", {})["allow"] = existing
+    else:
+        settings = {"permissions": {"allow": default_perms}}
 
-If it already exists, read it and add any missing permission entries from the default set
-to the existing `permissions.allow` array. Do not remove or overwrite existing entries.
-This preserves user customizations while guaranteeing the required permissions are present.
+    return settings
 
-## Step 9: Report Completion
 
-Output a summary:
+def main():
+    parser = argparse.ArgumentParser(description="Provision a TeamForge team onto a project")
+    parser.add_argument("--team", help="Team slug (defaults to credentials.json team_slug)")
+    parser.add_argument("--target-dir", default=".", help="Target directory (defaults to cwd)")
+    args = parser.parse_args()
 
-```
-Team '{team_name}' provisioned on this project.
+    # Load credentials
+    creds = load_credentials()
+    api_url = creds["api_url"]
+    api_key = creds["api_key"]
+    org_slug = creds["org_slug"]
+    team_slug = args.team or creds.get("team_slug")
 
-Files created:
-  CLAUDE.md (main agent: {tl_name} / {tl_role})
-  .claude/agents/{slug1}.md
-  .claude/agents/{slug2}.md
-  ... (list all)
-  .claude/settings.local.json
+    if not team_slug:
+        print("ERROR: No team slug provided and none found in credentials.json", file=sys.stderr)
+        sys.exit(1)
 
-To start working with {tl_name}, close this session and run:
-  claude
+    # Get GCP token
+    token = get_gcp_token()
 
-{tl_name} will load automatically as the main agent.
-```
+    # Fetch team data
+    print(f"Fetching team '{team_slug}' from TeamForge...")
+    team_data = api_get(f"{api_url}/api/v1/teams/{team_slug}", api_key, token)
 
-After reporting, your job is done. Do not continue with any other work.
+    if "roster" not in team_data:
+        print(f"ERROR: Team '{team_slug}' not found or has no roster.", file=sys.stderr)
+        sys.exit(1)
 
-## Alternative Invocation
+    team_name = team_data.get("name", team_slug)
+    roster = team_data["roster"]
 
-The provisioning process can also be run as a standalone script, without launching the
-seed agent interactively. This is useful when another agent needs to provision a team
-programmatically, or when a user wants to say something like "attach team nautilus to
-this project" in plain language.
+    # Fetch org data
+    org_data = api_get(f"{api_url}/api/v1/orgs/{org_slug}", api_key, token)
 
-Any agent (or user) can run:
+    # Find Tech Lead
+    tl = find_tech_lead(roster)
+    if not tl:
+        print(f"ERROR: No Tech Lead found on team '{team_name}'.", file=sys.stderr)
+        sys.exit(1)
 
-```
-bash ~/.config/teamforge/provision_team.sh
-```
+    tl_name = tl["name"]
+    tl_slug = tl["slug"]
 
-Or with an explicit team slug:
+    target_dir = Path(args.target_dir).resolve()
 
-```
-bash ~/.config/teamforge/provision_team.sh nautilus
-```
+    # Generate CLAUDE.md
+    claude_md = generate_claude_md(tl_name, tl_slug, team_name, team_slug, org_slug)
+    claude_path = target_dir / "CLAUDE.md"
+    with open(claude_path, "w") as f:
+        f.write(claude_md)
 
-This generates the same files as Steps 6-9 above (CLAUDE.md, .claude/agents/*.md,
-.claude/settings.local.json) in the current directory. The script reads credentials
-from ~/.config/teamforge/credentials.json, authenticates via GCP, queries the
-TeamForge API for the team roster, and writes all files automatically.
+    # Generate agent files
+    agents_dir = target_dir / ".claude" / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
 
-The script is installed alongside seed.md by `scripts/install_seed.sh`. It can also
-be run directly from the crucible repository at `scripts/provision_team.sh`.
+    created_agents = []
+    for agent in roster:
+        slug = agent["slug"]
+        name = agent["name"]
+        role = agent["role"]
+        agent_md = generate_agent_md(slug, name, role, team_name, team_slug, org_slug)
+        agent_path = agents_dir / f"{slug}.md"
+        with open(agent_path, "w") as f:
+            f.write(agent_md)
+        created_agents.append(slug)
+
+    # Generate settings
+    settings = generate_settings(target_dir)
+    settings_path = target_dir / ".claude" / "settings.local.json"
+    with open(settings_path, "w") as f:
+        json.dump(settings, f, indent=2)
+        f.write("\n")
+
+    # Print summary
+    print()
+    print(f"Team '{team_name}' provisioned on this project.")
+    print()
+    print("Files created:")
+    print(f"  CLAUDE.md (main agent: {tl_name} / Tech Lead)")
+    for slug in created_agents:
+        print(f"  .claude/agents/{slug}.md")
+    print("  .claude/settings.local.json")
+    print()
+    print(f"To start working with {tl_name}, close this session and run:")
+    print("  claude")
+    print()
+    print(f"{tl_name} will load automatically as the main agent.")
+
+
+if __name__ == "__main__":
+    main()

@@ -27,8 +27,29 @@ if [ ! -f "$SEED_SOURCE" ]; then
     exit 1
 fi
 
+if [ -f "$TARGET_FILE" ]; then
+    SEED_ACTION="updated"
+else
+    SEED_ACTION="installed"
+fi
+
 cp "$SEED_SOURCE" "$TARGET_FILE"
-echo "Seed agent installed at $TARGET_FILE"
+echo "Seed agent $SEED_ACTION at $TARGET_FILE"
+
+# Copy provisioning scripts
+PROVISION_SH="$SCRIPT_DIR/provision_team.sh"
+PROVISION_PY="$SCRIPT_DIR/provision_team.py"
+
+if [ -f "$PROVISION_SH" ]; then
+    cp "$PROVISION_SH" "$TARGET_DIR/provision_team.sh"
+    chmod +x "$TARGET_DIR/provision_team.sh"
+    echo "Provisioning script installed at $TARGET_DIR/provision_team.sh"
+fi
+
+if [ -f "$PROVISION_PY" ]; then
+    cp "$PROVISION_PY" "$TARGET_DIR/provision_team.py"
+    echo "Provisioning module installed at $TARGET_DIR/provision_team.py"
+fi
 
 # Check prerequisites
 echo
@@ -73,10 +94,17 @@ echo "========================================"
 echo
 echo "To provision a team on a new project:"
 echo
-echo "  1. cd /path/to/your/new/project"
-echo "  2. claude --agent ~/.config/teamforge/seed.md"
-echo "  3. The seed agent will set everything up"
-echo "  4. Start a new session with: claude"
-echo "  5. You're talking to the Team Lead"
+echo "  Option A: Interactive (via seed agent)"
+echo "    1. cd /path/to/your/new/project"
+echo "    2. claude --agent ~/.config/teamforge/seed.md"
+echo "    3. The seed agent will set everything up"
+echo "    4. Start a new session with: claude"
+echo
+echo "  Option B: Script (from any session or terminal)"
+echo "    1. cd /path/to/your/new/project"
+echo "    2. bash ~/.config/teamforge/provision_team.sh [TEAM_SLUG]"
+echo "    3. Start a new session with: claude"
+echo
+echo "  Either way, you're talking to the Team Lead."
 echo
 echo "Done."
