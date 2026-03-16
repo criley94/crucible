@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: teamforge
+      POSTGRES_PASSWORD: teamforge
+      POSTGRES_DB: teamforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./api
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://teamforge:teamforge@db:5432/teamforge
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

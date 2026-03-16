@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Test
+.pytest_cache/
+.coverage
+
+# Docker
+docker-compose.override.yml
+
+# Secrets
+credentials.json
+*.key
+*.pem
