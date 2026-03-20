@@ -20,7 +20,7 @@ def create_agent():
             "error": {"code": "VALIDATION_ERROR", "message": "Request body required.", "details": {}}
         }), 422
 
-    required = ["name", "slug", "agent_type", "role", "persona", "responsibilities"]
+    required = ["name", "slug", "agent_type", "role"]
     missing = [f for f in required if not data.get(f)]
     if missing:
         return jsonify({
@@ -66,8 +66,8 @@ def create_agent():
             slug=data["slug"],
             agent_type=data["agent_type"],
             role=data["role"],
-            persona=data["persona"],
-            responsibilities=data["responsibilities"],
+            persona=data.get("persona", ""),
+            responsibilities=data.get("responsibilities", ""),
             understanding=data.get("understanding"),
             relationships=data.get("relationships"),
         )
